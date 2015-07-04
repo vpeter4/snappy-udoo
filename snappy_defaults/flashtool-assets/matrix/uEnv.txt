@@ -1,0 +1,6 @@
+# Set default bootargs
+mmcargs=setenv bootargs root=${mmcroot} console=tty0 console=ttymxc0,115200 consoleblank=0 video=mxcfb0:dev=hdmi,1920x1080M@60,if=RGB24,bpp=16 dmfc=3 ahci_imx.hotplug=1 pci=nomsi loop.max_part=15
+
+# load Snappy script to pointer and import script to env
+# set ethernet address for matrix in case not already set
+uenvcmd=load mmc ${mmcdev}:${mmcpart} ${loadaddr} snappy-system.txt; env import -t $loadaddr $filesize; if test -n $ethaddr; then true; else setenv ethaddr 1E:ED:19:27:1A:B2; fi

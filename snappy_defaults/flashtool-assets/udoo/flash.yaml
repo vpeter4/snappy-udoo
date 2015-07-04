@@ -1,0 +1,2 @@
+bootloader:
+    - dd if=%s/u-boot.imx of=%s bs=1K seek=1 conv=notrunc

@@ -1,0 +1,83 @@
+<!--
+* Copyright (C) 2012, Freescale Semiconductor, Inc. All Rights Reserved.
+* The CFG element contains a list of recognized usb devices.
+*  DEV elements provide a name, class, vid and pid for each device.
+*
+* Each LIST element contains a list of update instructions.
+*  "Install" - Erase media and install firmware.
+*  "Update" - Update firmware only.
+*
+* Each CMD element contains one update instruction of attribute type.
+*  "pull" - Does UtpRead(body, file) transaction.
+*  "push" - Does UtpWrite(body, file) transaction.
+*  "drop" - Does UtpCommand(body) then waits for device to disconnect.
+*  "boot" - Finds configured device, forces it to "body" device and downloads "file".
+*  "find" - Waits for "timeout" seconds for the "body" device to connect.
+*  "show" - Parse and show device info in "file".
+-->
+
+
+<UCL>
+  <CFG>
+    <STATE name="BootStrap" dev="MX6Q" vid="15A2" pid="0054"/>
+    <STATE name="Updater"   dev="MSC" vid="066F" pid="37FF"/>
+  </CFG>
+
+<!-- *********************************** -->
+<!--  Ubuntu Snappy											 -->
+<!-- *********************************** -->
+<LIST name="SabreSD-eMMC-snappy" desc="Choose eMMC Linux as media">
+  <!-- u-boot, uImage and initramfs for update process with MfgTool2 -->
+  <CMD state="BootStrap" type="boot" body="BootStrap" file ="mfgtool2/u-boot-mx6q-sabresd.bin" >Loading u-boot</CMD>
+  <CMD state="BootStrap" type="load" file="mfgtool2/uImage" address="0x10800000"
+       loadSection="OTH" setSection="OTH" HasFlashHeader="FALSE" >Loading Kernel</CMD>
+  <CMD state="BootStrap" type="load" file="mfgtool2/initramfs.cpio.gz.uboot" address="0x10C00000"
+       loadSection="OTH" setSection="OTH" HasFlashHeader="FALSE" >Loading Initramfs</CMD>
+  <CMD state="BootStrap" type="jump" >Booting to reinstall</CMD>
+
+  <CMD state="Updater" type="push" body="$ echo 0 > /sys/block/mmcblk0boot0/force_ro">Access boot partition 1</CMD>
+
+  <CMD state="Updater" type="push" body="send" file="snappy/u-boot.imx">Sending u-boot</CMD>
+  <CMD state="Updater" type="push" body="$ dd if=$FILE of=/dev/mmcblk0boot0 bs=1024 seek=1">Writing u-boot</CMD>
+
+  <CMD state="Updater" type="push" body="$ echo 1 > /sys/block/mmcblk0boot0/force_ro">Re-enable read-only access </CMD>
+  <CMD state="Updater" type="push" body="$ echo 8 > /sys/devices/platform/sdhci-esdhc-imx.3/mmc_host/mmc0/mmc0:0001/boot_config">Enable boot partion 1 to boot</CMD>
+
+  <CMD state="Updater" type="push" body="pipe dd of=partitition-emmc.sh" file="partitition-emmc.sh">Sending partition shell script</CMD>
+  <CMD state="Updater" type="push" body="frf">Partition shell script written</CMD>
+  <CMD state="Updater" type="push" body="$ sh partitition-emmc.sh /dev/mmcblk0">Partitioning</CMD>
+
+  <CMD state="Updater" type="push" body="$ mkfs.vfat /dev/mmcblk0p1 -L system-boot">Formatting system-boot partition</CMD>
+  <CMD state="Updater" type="push" body="$ mkfs.ext4 -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 /dev/mmcblk0p2 -L system-a">Formatting system-a partition</CMD>
+  <CMD state="Updater" type="push" body="$ mkfs.ext4 -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 /dev/mmcblk0p3 -L system-b">Formatting system-b partition</CMD>
+  <CMD state="Updater" type="push" body="$ mkfs.ext4 -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 /dev/mmcblk0p4 -L writable">Formatting writable partition</CMD>
+
+  <CMD state="Updater" type="push" body="$ mkdir -p /mnt/mmcblk0p1"/>
+  <CMD state="Updater" type="push" body="$ mount -t vfat /dev/mmcblk0p1 /mnt/mmcblk0p1"/>
+  <CMD state="Updater" type="push" body="pipe tar --numeric-owner -zxv -C /mnt/mmcblk0p1" file="snappy/snappy-matrix-p1.tgz">Sending and writting system-boot partititon</CMD>
+  <CMD state="Updater" type="push" body="frf">Finishing system-boot partititon write</CMD>
+  <CMD state="Updater" type="push" body="$ umount /mnt/mmcblk0p1">Unmounting system-boot partition</CMD>
+
+  <CMD state="Updater" type="push" body="$ mkdir -p /mnt/mmcblk0p2"/>
+  <CMD state="Updater" type="push" body="$ mount -t ext4 /dev/mmcblk0p2 /mnt/mmcblk0p2"/>
+  <CMD state="Updater" type="push" body="pipe tar --numeric-owner -zxv -C /mnt/mmcblk0p2" file="snappy/snappy-matrix-p2.tgz">Sending and writting system-a partititon</CMD>
+  <CMD state="Updater" type="push" body="frf">Finishing system-a partititon write</CMD>
+  <CMD state="Updater" type="push" body="$ umount /mnt/mmcblk0p2">Unmounting system-a partition</CMD>
+
+  <CMD state="Updater" type="push" body="$ mkdir -p /mnt/mmcblk0p3"/>
+  <CMD state="Updater" type="push" body="$ mount -t ext4 /dev/mmcblk0p3 /mnt/mmcblk0p3"/>
+  <CMD state="Updater" type="push" body="pipe tar --numeric-owner -zxv -C /mnt/mmcblk0p3" file="snappy/snappy-matrix-p3.tgz">Sending and writting system-b partititon</CMD>
+  <CMD state="Updater" type="push" body="frf">Finishing system-b partititon write</CMD>
+  <CMD state="Updater" type="push" body="$ umount /mnt/mmcblk0p3">Unmounting system-b partition</CMD>
+
+  <CMD state="Updater" type="push" body="$ mkdir -p /mnt/mmcblk0p4"/>
+  <CMD state="Updater" type="push" body="$ mount -t ext4 /dev/mmcblk0p4 /mnt/mmcblk0p4"/>
+  <CMD state="Updater" type="push" body="pipe tar --numeric-owner -zxv -C /mnt/mmcblk0p4" file="snappy/snappy-matrix-p4.tgz">Sending and writting writable partititon</CMD>
+  <CMD state="Updater" type="push" body="frf">Finishing writable partititon write</CMD>
+  <CMD state="Updater" type="push" body="$ umount /mnt/mmcblk0p4">Unmounting writable partition</CMD>
+
+  <CMD state="Updater" type="push" body="$ sync">Flushing file system buffers</CMD>
+  <CMD state="Updater" type="push" body="$ echo eMMC write complete!">Done</CMD>
+</LIST>
+
+</UCL>
